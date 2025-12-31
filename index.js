@@ -110,55 +110,75 @@ async function connectToWA() {
   })
 
 conn.ev.on('connection.update', async (update) => {
-  const { connection, lastDisconnect, qr } = update
+  const { connection, lastDisconnect, qr } = update;
 
   if (qr) {
-    // QR code එක terminal එකේ print කරන්න (optional - ඔයාට printQRInTerminal true කරලා තියෙනවනම් අවශ්‍ය නෑ)
-    qrcode.generate(qr, { small: true })
+    qrcode.generate(qr, { small: true });
   }
 
   if (connection === 'close') {
-    // Boom error එකෙන් statusCode safely ගන්නවා
-    const shouldReconnect = (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut
 
-    console.log('Connection closed ⚠️')
-    console.log('Reason:', (lastDisconnect?.error as Boom)?.output?.statusCode || 'Unknown')
+    const statusCode =
+      lastDisconnect &&
+      lastDisconnect.error &&
+      lastDisconnect.error.output &&
+      lastDisconnect.error.output.statusCode;
+
+    const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+
+    console.log('Connection closed ⚠️');
+    console.log('Reason:', statusCode || 'Unknown');
 
     if (shouldReconnect) {
-      console.log('Reconnecting to WhatsApp... ⏳')
-      connectToWA() // auto reconnect
+      console.log('Reconnecting to WhatsApp... ⏳');
+      connectToWA(); // auto reconnect
     } else {
-      console.log('🚫 You are logged out permanently.')
-      console.log('Delete the /sessions folder and scan a new QR code.')
-      console.log('Or add a new SESSION_ID in config and restart.')
-      // optional: process.exit(1) // bot fully stop කරන්න ඕනෙනම් මේක uncomment කරන්න
+      console.log('🚫 You are logged out permanently.');
+      console.log('Delete the /sessions folder and scan a new QR code.');
+      console.log('Or add a new SESSION_ID in config and restart.');
+      // process.exit(1); // optional
     }
   } 
   else if (connection === 'connecting') {
-    console.log('Connecting to WhatsApp... ⏳')
+    console.log('Connecting to WhatsApp... ⏳');
   } 
   else if (connection === 'open') {
-    console.log('🧬 Bot connected to WhatsApp successfully ✅')
+    console.log('🧬 Bot connected to WhatsApp successfully ✅');
 
-    // Plugin load කරන part එක
-    console.log('🧬 Installing DADMARK XMD Plugins')
+    console.log('🧬 Installing DADMARK XMD Plugins');
     fs.readdirSync("./plugins/").forEach((plugin) => {
-      if (path.extname(plugin).toLowerCase() == ".js") {
+      if (path.extname(plugin).toLowerCase() === ".js") {
         require("./plugins/" + plugin);
       }
     });
-    console.log('Plugins installed successful ✅')
+    console.log('Plugins installed successful ✅');
 
-    // Welcome message to bot owner
-    let up = `*Hello there ✦ CASEY ✦ RHODES ✦ XMD ✦ User! 👋🏻* \n\n> This is a user friendly whatsapp bot created by DADMARK TECH INC. 🎊, Meet ✦ DADMARK XMD ✦ WhatsApp Bot.\n\n *Thanks for using ✦ CASEY ✦ RHODES XMD ✦ 🚨* \n\n> follow WhatsApp Channel :- 💖\n \nhttps://whatsapp.com/channel/0029VakUEfb4o7qVdkwPk83E\n\n- *YOUR PREFIX:* = ${prefix}\n\nDont forget to give star to repo ⬇️\n\nhttps://github.com/caseyweb/DADMARK-XMD\n\n> © Powered BY ✦ DADMARK ✦ XMD ✦ 🎲`;
+    let up = `*Hello there ✦ CASEY ✦ RHODES ✦ XMD ✦ User! 👋🏻*
+
+> This is a user friendly whatsapp bot created by DADMARK TECH INC. 🎊
+Meet ✦ DADMARK XMD ✦ WhatsApp Bot.
+
+*Thanks for using ✦ CASEY ✦ RHODES XMD ✦ 🚨*
+
+> follow WhatsApp Channel :- 💖
+https://whatsapp.com/channel/0029VakUEfb4o7qVdkwPk83E
+
+- *YOUR PREFIX:* = ${prefix}
+
+Dont forget to give star to repo ⬇️
+https://github.com/caseyweb/DADMARK-XMD
+
+> © Powered BY ✦ DADMARK ✦ XMD ✦ 🎲`;
 
     conn.sendMessage(conn.user.id, { 
-      image: { url: `https://files.catbox.moe/jicpyd.jpg` }, 
+      image: { url: "https://files.catbox.moe/jicpyd.jpg" }, 
       caption: up 
-    })
+    });
   }
-})
-  conn.ev.on('creds.update', saveCreds)
+});
+
+conn.ev.on('creds.update', saveCreds);
+
 
   //=============readstatus=======
 

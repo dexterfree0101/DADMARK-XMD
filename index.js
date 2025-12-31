@@ -21,7 +21,7 @@ const {
   Browsers
 } = require('@whiskeysockets/baileys')
 
-
+const { Boom } = require('@hapi/boom')
 const l = console.log
 const { getBuffer, getGroupAdmins, getRandom, h2k, isUrl, Json, runtime, sleep, fetchJson } = require('./lib/functions')
 const fs = require('fs')
@@ -65,15 +65,27 @@ setInterval(clearTempDir, 5 * 60 * 1000);
 
 //===================SESSION-AUTH============================
 if (!fs.existsSync(__dirname + '/sessions/creds.json')) {
-  if (!config.SESSION_ID) return console.log('Please add your session to SESSION_ID env !!')
-  const sessdata = config.SESSION_ID.replace("Caseyrhodes~", '');
+  if (!config.SESSION_ID) {
+    console.log('❌ Please add your SESSION_ID in config.js or .env file!!')
+    process.exit(1)  // Bot stop කරනවා session නැත්නම්
+  }
+
+  const sessdata = config.SESSION_ID.replace("Caseyrhodes~", '')
   const filer = File.fromURL(`https://mega.nz/file/${sessdata}`)
+
+  console.log('📥 Downloading session from Mega.nz...')
   filer.download((err, data) => {
-    if (err) throw err
-    fs.writeFile(__dirname + '/sessions/creds.json', data, () => {
-      console.log("Session downloaded ✅")
-    })
+    if (err) {
+      console.log("❌ Session download failed:", err.message)
+      process.exit(1)
+    }
+    fs.writeFileSync(__dirname + '/sessions/creds.json', data)
+    console.log("✅ Session downloaded successfully!")
+    startBot()  // Download complete උනාම bot start කරන්න
   })
+} else {
+  console.log("✅ Existing session found (creds.json)")
+  startBot()
 }
 
 const express = require("express");
@@ -83,43 +95,69 @@ const port = process.env.PORT || 9090;
 //=============================================
 
 async function connectToWA() {
-  console.log("Connecting DADMARK XMD to WhatsApp ⏳️...");
+  console.log("Connecting DADMARK XMD to WhatsApp ⏳️...")
+
   const { state, saveCreds } = await useMultiFileAuthState(__dirname + '/sessions/')
-  var { version } = await fetchLatestBaileysVersion()
+  const { version } = await fetchLatestBaileysVersion()
 
   const conn = makeWASocket({
     logger: P({ level: 'silent' }),
-    printQRInTerminal: false,
+    printQRInTerminal: true,  // QR terminal එකේ print වෙන්න
     browser: Browsers.macOS("Firefox"),
     syncFullHistory: true,
     auth: state,
     version
   })
 
-  conn.ev.on('connection.update', (update) => {
-    const { connection, lastDisconnect } = update
-    if (connection === 'close') {
-      // FIX: Added optional chaining (?.) to prevent crash if error/output is undefined
-      if (lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut) {
-        connectToWA()
-      } else {
-        console.log('Connection closed. You are logged out.');
-      }
-    } else if (connection === 'open') {
-      console.log('🧬 Installing DADMARK XMD Plugins')
-      const path = require('path');
-      fs.readdirSync("./plugins/").forEach((plugin) => {
-        if (path.extname(plugin).toLowerCase() == ".js") {
-          require("./plugins/" + plugin);
-        }
-      });
-      console.log('Plugins installed successful ✅')
-      console.log('Bot connected to whatsapp ✅')
+conn.ev.on('connection.update', async (update) => {
+  const { connection, lastDisconnect, qr } = update
 
-      let up = `*Hello there ✦ CASEY ✦ RHODES ✦ XMD ✦ User! 👋🏻* \n\n> This is auser friendly whatsapp bot created by DADMARK TECH INC. 🎊, Meet ✦ DADMARK XMD ✦ WhatsApp Bot.\n\n *Thanks for using ✦ CASEY ✦ RHODES XMD ✦ 🚨* \n\n> follow WhatsApp Channel :- 💖\n \nhttps://whatsapp.com/channel/0029VakUEfb4o7qVdkwPk83E\n\n- *YOUR PREFIX:* = ${prefix}\n\nDont forget to give star to repo ⬇️\n\nhttps://github.com/caseyweb/DADMARK-XMD\n\n> © Powered BY ✦ DADMARK ✦ XMD ✦ 🎲`;
-      conn.sendMessage(conn.user.id, { image: { url: `https://files.catbox.moe/jicpyd.jpg` }, caption: up })
+  if (qr) {
+    // QR code එක terminal එකේ print කරන්න (optional - ඔයාට printQRInTerminal true කරලා තියෙනවනම් අවශ්‍ය නෑ)
+    qrcode.generate(qr, { small: true })
+  }
+
+  if (connection === 'close') {
+    // Boom error එකෙන් statusCode safely ගන්නවා
+    const shouldReconnect = (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut
+
+    console.log('Connection closed ⚠️')
+    console.log('Reason:', (lastDisconnect?.error as Boom)?.output?.statusCode || 'Unknown')
+
+    if (shouldReconnect) {
+      console.log('Reconnecting to WhatsApp... ⏳')
+      connectToWA() // auto reconnect
+    } else {
+      console.log('🚫 You are logged out permanently.')
+      console.log('Delete the /sessions folder and scan a new QR code.')
+      console.log('Or add a new SESSION_ID in config and restart.')
+      // optional: process.exit(1) // bot fully stop කරන්න ඕනෙනම් මේක uncomment කරන්න
     }
-  })
+  } 
+  else if (connection === 'connecting') {
+    console.log('Connecting to WhatsApp... ⏳')
+  } 
+  else if (connection === 'open') {
+    console.log('🧬 Bot connected to WhatsApp successfully ✅')
+
+    // Plugin load කරන part එක
+    console.log('🧬 Installing DADMARK XMD Plugins')
+    fs.readdirSync("./plugins/").forEach((plugin) => {
+      if (path.extname(plugin).toLowerCase() == ".js") {
+        require("./plugins/" + plugin);
+      }
+    });
+    console.log('Plugins installed successful ✅')
+
+    // Welcome message to bot owner
+    let up = `*Hello there ✦ CASEY ✦ RHODES ✦ XMD ✦ User! 👋🏻* \n\n> This is a user friendly whatsapp bot created by DADMARK TECH INC. 🎊, Meet ✦ DADMARK XMD ✦ WhatsApp Bot.\n\n *Thanks for using ✦ CASEY ✦ RHODES XMD ✦ 🚨* \n\n> follow WhatsApp Channel :- 💖\n \nhttps://whatsapp.com/channel/0029VakUEfb4o7qVdkwPk83E\n\n- *YOUR PREFIX:* = ${prefix}\n\nDont forget to give star to repo ⬇️\n\nhttps://github.com/caseyweb/DADMARK-XMD\n\n> © Powered BY ✦ DADMARK ✦ XMD ✦ 🎲`;
+
+    conn.sendMessage(conn.user.id, { 
+      image: { url: `https://files.catbox.moe/jicpyd.jpg` }, 
+      caption: up 
+    })
+  }
+})
   conn.ev.on('creds.update', saveCreds)
 
   //=============readstatus=======

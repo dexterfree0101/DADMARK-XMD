@@ -96,9 +96,20 @@ console.log("Session downloaded ✅")
   conn.ev.on('connection.update', (update) => {
   const { connection, lastDisconnect } = update
   if (connection === 'close') {
-  if (lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut) {
-  connectToWA()
+  const statusCode =
+    lastDisconnect?.error?.output?.statusCode ||
+    lastDisconnect?.error?.statusCode
+
+  console.log('Disconnected with status:', statusCode)
+
+  if (statusCode !== DisconnectReason.loggedOut) {
+    console.log('Reconnecting...')
+    connectToWA()
+  } else {
+    console.log('Logged out. Delete session and rescan QR.')
   }
+}
+
   } else if (connection === 'open') {
   console.log('🧬 Installing DADMARK XMD Plugins')
   const path = require('path');

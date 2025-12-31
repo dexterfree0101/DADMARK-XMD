@@ -35,6 +35,7 @@
     "btch-downloader": "^2.2.9",
     "megajs": "^1.1.0",
     "pdfkit": "^0.14.0",
+    "jimp": "latest",
     "wa_set_pkg": "1.0.5",
     "wa-sticker-formatter": "^4.4.4",
     "vm": "^0.1.0",

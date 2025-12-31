@@ -63,30 +63,33 @@ const clearTempDir = () => {
 // Clear the temp directory every 5 minute
 setInterval(clearTempDir, 5 * 60 * 1000);
 
-//===================SESSION-AUTH============================
 if (!fs.existsSync(__dirname + '/sessions/creds.json')) {
+
   if (!config.SESSION_ID) {
-    console.log('❌ Please add your SESSION_ID in config.js or .env file!!')
-    process.exit(1)  // Bot stop කරනවා session නැත්නම්
+    console.log('❌ Please add your SESSION_ID in config.js or .env file!!');
+    process.exit(1);
   }
 
-  const sessdata = config.SESSION_ID.replace("Caseyrhodes~", '')
-  const filer = File.fromURL(`https://mega.nz/file/${sessdata}`)
+  const sessdata = config.SESSION_ID.replace("Caseyrhodes~", '');
+  const filer = File.fromURL(`https://mega.nz/file/${sessdata}`);
 
-  console.log('📥 Downloading session from Mega.nz...')
+  console.log('📥 Downloading session from Mega.nz...');
   filer.download((err, data) => {
     if (err) {
-      console.log("❌ Session download failed:", err.message)
-      process.exit(1)
+      console.log("❌ Session download failed:", err.message);
+      process.exit(1);
     }
-    fs.writeFileSync(__dirname + '/sessions/creds.json', data)
-    console.log("✅ Session downloaded successfully!")
-    startBot()  // Download complete උනාම bot start කරන්න
-  })
+
+    fs.writeFileSync(__dirname + '/sessions/creds.json', data);
+    console.log("✅ Session downloaded successfully!");
+    startBot(); // ✅ NOW VALID
+  });
+
 } else {
-  console.log("✅ Existing session found (creds.json)")
-  startBot()
+  console.log("✅ Existing session found (creds.json)");
+  startBot(); // ✅ NOW VALID
 }
+
 
 const express = require("express");
 const app = express();
@@ -674,6 +677,23 @@ conn.ev.on('creds.update', saveCreds);
     });
 
   })
+}
+async function startBot() {
+  try {
+    await connectToWA();
+
+    app.get("/api", (req, res) => {
+      res.send("🟢 DADMARK XMD Bot is running!");
+    });
+
+    app.listen(port, () => {
+      console.log(`🌐 Server running on port ${port}`);
+    });
+
+  } catch (err) {
+    console.log("❌ Bot start failed:", err);
+    process.exit(1);
+  }
 }
 
 app.get("/", (req, res) => {
